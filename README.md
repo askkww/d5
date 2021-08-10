@@ -1,6 +1,8 @@
 # d5
 
+## 按键精灵手机助手下载地址
 
+http://download.myanjian.com/#ajjl
 
 # 前置条件
 
