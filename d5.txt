@@ -1,0 +1,900 @@
+
+
+Import "zm.luae"
+Import "ShanHai.lua"
+Import "Thread.lua"
+
+
+//
+Dim 字库名称 = "d5.txt"
+Dim 临时文件目录 = GetTempDir()
+TracePrint "临时文件目录"&临时文件目录
+//把所有扩展名为png的文件释放到按键精灵的临时文件目录下。 
+PutAttachment "", "*.txt"	
+PutAttachment 临时文件目录, "bibi.mp3"
+
+
+
+//
+
+
+
+// 已完成的：吸血鬼 幽灵
+// 未完成的：幽莹娃娃  鬼将  告密  画魂
+// 已完成的：宝宝 护佑 超量暴击  爆炸
+// 未完成的：瘟疫  金身  头领 精英  
+
+
+
+//=====================================================
+// 用户配置变量
+Dim 人物攻击类型, 宝宝攻击类型
+//Dim 人物攻击类型="平A", 宝宝攻击类型="法术攻击"
+Dim 治宝宝战斗次数最大值
+
+
+// 定义静态资源常量
+
+
+//=====================================================
+// 通用全局变量
+Dim 全局延迟 = 0.8
+
+//=====================================================
+// 业务全局变量
+Dim 文字精确度 = 0.8
+Dim 绿色名字 = "6DDE56-222222"
+Dim 红色名字 = "0101FF-222222"
+// 怪的名字坐标，面对人的第一排左侧开始
+Dim 怪坐标 = {"1":{432,358,471,590},"2":{500,512,545,763},"3":{573,695,614,911},"4":{645,872,686,1089},"5":{715,1027,760,1250},"6":{520,288,558,491},"7":{592,469,631,656},"8":{665,621,702,818},"9":{736,770,774,995},"10":{809,896,846,1187}}
+Dim 打怪坐标 = {"1":{578,489},"2":{670,650},"3":{732,812},"4":{820,973},"5":{901,1140},"6":{686,401},"7":{780,565},"8":{825,726},"9":{894,880},"10":{965,1052}}
+Dim 随机地图移动坐标 = {"1":{334,929},"2":{550,905},"3":{653,979},"4":{453,979},"5":{594,1297},"6":{316,1126}}
+
+Dim 场景地图区域x1 = 389, 场景地图区域y1 = 839, 场景地图区域x2 = 618, 场景地图区域y2 = 1272
+Dim 阻断线程id, 正反脸阻断线程共享变量
+
+For i = 1 To 10
+	Dim a1 = 怪坐标[""&i]
+	a1[1] = a1[1] - 5
+	a1[2] = a1[2] - 5
+	a1[3] = a1[3] + 5
+	a1[4] = a1[4] + 5
+	Dim Json字符串 = Encode.TableToJson(a1)
+	TracePrint Json字符串
+Next
+
+// 怪物类型列表顺序不能换，左侧的优先处理
+Dim 怪物类型列表 = array("宝宝","护佑","超量暴击","爆炸")
+
+// 启动main
+main()
+
+//Dim a = File.ReadLines(临时文件目录&"/d5utf8.txt")
+//Dim a = File.ReadLines("/sdcard/d5utf8.txt")
+//Dim Json字符串 = Encode.TableToJson(a)
+//TracePrint Json字符串
+
+初始化点阵字典()
+
+Sub 初始化()
+    初始化点阵字典()
+    初始化用户配置变量()
+End Sub
+
+
+
+
+Function 初始化点阵字典()
+	Dim 字典路径 = 临时文件目录&字库名称
+	Dim 返回值
+	Delay 2000
+	TracePrint 字典路径
+	
+	Dim 设置字库返回值 = SetDictEx(0, "Attachment:d5.txt")
+	Dim 使用字库返回值 = UseDict(0)
+	Traceprint SetRowsNumber(0)
+	If 设置字库返回值 = 1 Then 
+		TracePrint "设置字库成功"
+		ShowMessage "设置字库成功"
+	Else 
+		TracePrint "设置字库失败"
+		ShowMessage "设置字库失败"
+	End If
+	If 使用字库返回值 = 1 Then 
+		TracePrint "使用字库成功"
+		ShowMessage "使用字库成功"
+	Else 
+		TracePrint "使用字库失败"
+		ShowMessage "使用字库失败"
+	End If
+End Function
+
+Function 初始化用户配置变量()
+	人物攻击类型 = ReadUIConfig("角色攻击","平A")
+	宝宝攻击类型 = ReadUIConfig("宝宝攻击", "平A")
+	治宝宝战斗次数最大值 = ReadUIConfig("多少回合后治疗宝宝",30)
+	治宝宝战斗次数最大值 = CInt(治宝宝战斗次数最大值)
+	If 人物攻击类型 = 0 Then 
+		人物攻击类型 = "平A"
+	Else 
+		人物攻击类型 = "法术攻击"
+	End If
+	If 宝宝攻击类型 = 0 Then 
+		宝宝攻击类型 = "平A"
+	Else 
+		宝宝攻击类型 = "法术攻击"
+	End If
+//	人物攻击类型 = "平A"
+//	宝宝攻击类型 = "平A"
+	治宝宝战斗次数最大值 = 20
+	If 治宝宝战斗次数最大值 = 0 or 治宝宝战斗次数最大值 ="" or 治宝宝战斗次数最大值 = null Then 
+		治宝宝战斗次数最大值 = 30
+	End If
+	TracePrint "初始化用户配置变量:"&"人物攻击类型:"&人物攻击类型&",宝宝攻击类型:"&宝宝攻击类型&"治宝宝战斗次数最大值:"&治宝宝战斗次数最大值
+	ShowMessage "人物攻击类型:"&人物攻击类型&",宝宝攻击类型:"&宝宝攻击类型&"治宝宝战斗次数最大值:"&治宝宝战斗次数最大值
+End Function
+
+
+
+//===========================【公共函数】==========================
+Function 获取附件(name)
+    获取附件 = "Attachment:"&name
+End Function
+
+Function 随机延迟(minMs,maxMs)
+    Dim 时间 = ShanHai.RndEx(minMs, maxMs)
+    TracePrint "随机延迟"&时间
+    Delay 时间
+End Function
+
+Function 获取怪物类型(怪物ocr结果)
+    Dim i = 1,返回值
+    If 怪物ocr结果 = null Or 怪物ocr结果 = "" Then
+        返回值 = ""
+    Else 
+        Do
+            If i <= UBOUND(怪物类型列表) + 1 Then 
+                Dim 结果 = UTF8.InStr(1, 怪物类型列表[i], 怪物ocr结果)
+                If CBool(结果) Then 
+                    返回值 = 怪物类型列表[i]
+                    Exit Do
+                End If
+                i = i + 1
+            Else 
+                Exit Do
+            End If
+        Loop
+    End If
+    获取怪物类型 = 返回值
+End Function
+
+
+Function 合并table(arr)
+    Dim 返回值(), i
+    For i=0 to UBound(arr)
+        Dim table = arr(i)
+        For Each k , v In table
+            返回值[k] = v
+        Next
+    Next
+    合并table = 返回值
+End Function
+
+Function 得到前5怪空表()
+    Dim 返回值()
+    返回值["1"] = ""
+    返回值["2"] = ""
+    返回值["3"] = ""
+    返回值["4"] = ""
+    返回值["5"] = ""
+    得到前5怪空表 = 返回值
+End Function
+
+Function RandomDelay()
+    Dim 随机延迟
+	
+End Function
+
+/*
+ *
+ *  MAIN
+ *
+ */
+Sub main()
+    Call 初始化()
+    Dim 退出条件,开始时间,结束时间,intX,intY,返回值()
+    Do
+        //========================================**************************
+        // 入口位置
+	
+		ShowMessage "启动"
+		Delay 4000
+
+        队长()
+        //        滑动识别后排怪物 ()
+        //        识别怪物前5()
+        //		Dim 识别怪物的信息 = 识别怪物()
+        //		TracePrint Encode.TableToJson(识别怪物的信息)
+
+        //========================================**************************
+        If 是否达到退出脚本条件() Then 
+            Exit Do
+        End If
+    Loop
+    Dim 耗时 = TickCount()/1000
+    TracePrint "耗时:"&耗时&"秒"
+End Sub
+
+Function 是否达到退出脚本条件()
+    是否达到退出脚本条件 = True
+End Function
+
+
+Function 打开背包()
+    Dim intX,intY,寻找结果, 图片地址
+    图片地址 = 获取附件("UI_道具.png")
+    随机延迟(400,800)
+    点击区域 34,1677,72,1721
+    随机延迟(400,800)
+End Function
+
+Function 关闭背包()
+	随机延迟 500, 800
+	点击区域 971,1578,1020,1631
+End Function
+
+
+Function 队长智能攻击(怪物table)
+    Dim i,攻击指定怪物返回值
+    Dim 攻击怪物的顺序 = 怪物排序(怪物table)
+    Dim Json字符串 = Encode.TableToJson(攻击怪物的顺序)
+    TracePrint Json字符串
+    Dim 攻击怪物的顺序数组长度 = UBound(攻击怪物的顺序) + 1
+    
+    If 攻击怪物的顺序数组长度 <= 0 Then 
+        没有宝宝和特殊怪了自动攻击吧()
+    Else 
+        For i = 1 To 攻击怪物的顺序数组长度
+            Dim 排好序的怪物 = 攻击怪物的顺序[i]
+            If 排好序的怪物["怪物类型"] = "宝宝" Then 
+                
+                攻击指定怪物返回值 = 抓宝宝(排好序的怪物["怪物位置"])
+                
+            Else 
+                攻击指定怪物返回值 = 攻击指定怪物(排好序的怪物["怪物位置"])
+                
+            End If
+            If 攻击指定怪物返回值 = "战斗结束" Then 
+                Exit For
+            ElseIf 攻击指定怪物返回值 = "回合结束" Then
+                If i = 攻击怪物的顺序数组长度 Then 
+                    没有宝宝和特殊怪了自动攻击吧()
+                End If
+            End If
+        Next
+    End If
+End Function
+
+Sub 没有宝宝和特殊怪了自动攻击吧()
+    开始自动攻击()
+    等待战斗结束()
+    结束自动攻击()
+End Sub
+
+Sub 开始自动攻击()
+    点击区域 36,1808,97,1875
+End Sub
+
+Sub 结束自动攻击()
+    点击区域 230,1533,280,1677
+End Sub
+
+Function 根据怪物位置获取怪物坐标(怪物位置index)
+    Dim 怪物点击坐标xy = 打怪坐标[""&怪物位置index]
+    Dim 返回值 = array(), 偏移量 = 5
+    Dim 随机偏移x = ShanHai.RndEx(怪物点击坐标xy[1]-偏移量, 怪物点击坐标xy[1]+偏移量)
+    返回值[1] = 随机偏移x
+    Dim 随机偏移y = ShanHai.RndEx(怪物点击坐标xy[2]-偏移量, 怪物点击坐标xy[2]+偏移量)
+    根据怪物位置获取怪物坐标 = {随机偏移x, 随机偏移y}
+End Function
+
+Sub 抓宝宝(怪物index)
+    Dim 怪物坐标对象 = 根据怪物位置获取怪物坐标(怪物index)
+    点击区域 36, 1072, 93, 1142
+    随机延迟(200,300)
+    RandomsTap(怪物坐标对象[1], 怪物坐标对象[2])
+    随机延迟(300,500)
+    // 可能自己的宝宝死了，随意判断一下是否有防御按钮
+    Dim intX, intY
+    FindPic 15,1642,101,1742, "Attachment:战斗_防御按钮.png","000000", 0, 0.9, intX, intY
+	//如果没有找到，intX和intY的值都会被置为-1
+	If intX > -1 And intY > -1 Then 
+		点击区域 40,1674,85,1714
+	End If
+    随机延迟 300, 500
+    Dim 返回值= 等待回合结束()
+    抓宝宝 = 返回值
+End Sub
+
+Function 攻击指定怪物(怪物index)
+    Dim intX, intY,返回值
+    TracePrint "人物攻击类型"&人物攻击类型
+    If 人物攻击类型 = "平A" Then 
+        角色普通攻击 (怪物index)
+    ElseIf 人物攻击类型 = "法术攻击" Then
+    	角色法术攻击(怪物index)
+    End If
+    Dim 随机延迟 = ShanHai.RndEx(200,300)
+    Delay 随机延迟
+    TracePrint "宝宝攻击类型"&宝宝攻击类型
+    If 宝宝攻击类型 = "平A" Then 
+        宝宝普通攻击 (怪物index)
+    ElseIf 宝宝攻击类型 = "法术攻击" Then
+    	宝宝法术攻击(怪物index)
+    End If
+    随机延迟 = ShanHai.RndEx(300,500)
+    Delay 随机延迟
+    点击区域(294,539,367,687)
+    返回值 = 等待回合结束()
+    攻击指定怪物 = 返回值
+    //    Do
+    //        KeepCapture
+    //        FindPic 564, 1779, 909, 1912, "Attachment:战斗_平A按钮.png", "000000", 0, 0.9, intX, intY
+    //        ReleaseCapture
+    //        If intX > -1 And intY > -1 Then 
+    //            Exit Do
+    //        End If
+    //    Loop
+End Function
+
+
+Function 等待回合结束()
+    Dim 颜色数量,intX,intY,返回值,当前回合颜色数量
+    Do
+        KeepCapture 
+        FindPic 763,1728,847,1880, "Attachment:UI_打开任务按钮.png","000000", 0, 0.9, intX, intY
+        If intX > -1 And intY > -1 Then 
+            返回值 = "战斗结束"
+            ReleaseCapture
+            Exit Do
+        Else 
+        End If
+        FindPic 702,788,1058,1165, "Attachment:战斗_倒计时_2.png","000000", 0, 0.9, intX, intY
+        If intX > -1 And intY > -1 Then 
+            返回值 = "回合结束"
+            ReleaseCapture
+            Exit Do
+        Else 
+        End If
+        ReleaseCapture 
+        Delay 100
+    Loop
+    等待回合结束 = 返回值
+End Function
+
+
+Function 角色普通攻击(怪物index)
+    Dim 返回值=null,怪物坐标对象 = 根据怪物位置获取怪物坐标(怪物index)
+    Dim 随机延迟=ShanHai.RndEx(200,300)
+    点击区域 791, 1809, 855, 1876
+    Delay 随机延迟
+    RandomsTap 怪物坐标对象[1], 怪物坐标对象[2]
+    Delay 随机延迟
+    Dim 检查攻击随机目标按钮还在 = 检查攻击随机目标按钮是否还在()
+    If 检查攻击随机目标按钮还在 Then 
+        点击区域 195, 1804, 257, 1875
+        返回值 = "随机目标"
+    End If
+End Function
+
+Sub 宝宝普通攻击(怪物index)
+    Dim 返回值 =null, 怪物坐标对象 = 根据怪物位置获取怪物坐标(怪物index)
+    Dim 随机延迟=ShanHai.RndEx(200,300)
+    点击区域 414,1810,479,1879
+    Delay 随机延迟
+    RandomsTap(怪物坐标对象[1],怪物坐标对象[2])
+    Delay 随机延迟
+    Dim 检查攻击随机目标按钮还在 = 检查攻击随机目标按钮是否还在()
+    If 检查攻击随机目标按钮还在 Then 
+        点击区域 195, 1804, 257, 1875
+        返回值 = "随机目标"
+    End If
+End Sub
+
+Sub 角色法术攻击(怪物index)
+	Dim 返回值=null,怪物坐标对象 = 根据怪物位置获取怪物坐标(怪物index)
+    Dim 随机延迟=ShanHai.RndEx(200,300)
+    点击区域 416,1663,472,1726
+    Delay 随机延迟
+    RandomsTap 怪物坐标对象[1], 怪物坐标对象[2]
+    Delay 随机延迟
+    Dim 检查攻击随机目标按钮还在 = 检查攻击随机目标按钮是否还在()
+    If 检查攻击随机目标按钮还在 Then 
+        点击区域 195, 1804, 257, 1875
+        返回值 = "随机目标"
+    End If
+End Sub
+
+Sub 宝宝法术攻击(怪物index)
+	Dim 返回值 =null, 怪物坐标对象 = 根据怪物位置获取怪物坐标(怪物index)
+    Dim 随机延迟=ShanHai.RndEx(200,300)
+    点击区域 292,1821,346,1875
+    Delay 随机延迟
+    点击区域 679,1238,731,1302
+    Delay 随机延迟
+    RandomsTap(怪物坐标对象[1],怪物坐标对象[2])
+    Delay 随机延迟
+    Dim 检查攻击随机目标按钮还在 = 检查攻击随机目标按钮是否还在()
+    If 检查攻击随机目标按钮还在 Then 
+        点击区域 195, 1804, 257, 1875
+        返回值 = "随机目标"
+    End If
+End Sub
+
+
+Function 检查攻击随机目标按钮是否还在()
+    Dim intX,intY,返回值
+    KeepCapture
+    FindPic 16,1782,109,1895, "Attachment:战斗_返回按钮.png","000000", 0, 0.9, intX, intY
+    //如果没有找到，intX和intY的值都会被置为-1
+    If intX > -1 And intY > -1 Then 
+        返回值 = True
+    Else 
+        返回值 = False
+    End If
+    ReleaseCapture 
+    检查攻击随机目标按钮是否还在 = 返回值
+End Function
+
+Function 怪物排序(怪物table)
+    Dim 结果 = array(), 结果索引 = 1, 怪物类型
+    For i = 1 To 10
+        怪物类型 = 获取怪物类型(怪物table["" & i])
+        //        TracePrint "i="&i&"，怪物类型:"&怪物类型
+        If 怪物类型 = "宝宝" Then 
+            结果[结果索引] = {"怪物位置":i, "怪物类型":"宝宝"}
+            结果索引 = 结果索引 + 1
+        End If
+    Next
+    For i = 1 To 10
+        怪物类型 = 获取怪物类型(怪物table[""&i])
+        //        TracePrint "i="&i&"，怪物类型:"&怪物类型
+        If 怪物类型 = "护佑" Then 
+            结果[结果索引] = {"怪物位置": i, "怪物类型": "护佑"}
+            结果索引 = 结果索引 + 1
+        End If
+    Next
+    For i = 1 To 10
+        怪物类型 = 获取怪物类型(怪物table[""&i])
+        //        TracePrint "i="&i&"，怪物类型:"&怪物类型
+        If 怪物类型 = "超量暴击" Then 
+            结果[结果索引] = {"怪物位置": i, "怪物类型": "超量暴击"}
+            结果索引 = 结果索引 + 1
+        End If
+    Next
+    For i = 1 To 10
+        怪物类型 = 获取怪物类型(怪物table[""&i])
+        //        TracePrint "i="&i&"，怪物类型:"&怪物类型
+        If 怪物类型 = "爆炸" Then 
+            结果[结果索引] = {"怪物位置": i, "怪物类型": "爆炸"}
+            结果索引 = 结果索引 + 1
+        End If
+    Next
+    怪物排序 = 结果
+End Function
+
+
+Function 识别怪物()
+    Dim 返回值, 前排怪物table, 后排怪物table
+    Dim 只有后排精英怪 = 是否只有后排精英怪()
+    
+    KeepCapture
+    If 只有后排精英怪["是否"] Then 
+        前排怪物table = 得到前5怪空表()
+        后排怪物table = 识别怪物后5()
+    Else 
+        前排怪物table = 识别怪物前5(只有后排精英怪)
+        TracePrint "前排怪物识别完成"
+        后排怪物table = 滑动识别后排怪物(只有后排精英怪)
+        TracePrint "后排怪物识别完成"
+    End If
+    ReleaseCapture
+    返回值 = 合并table(array(前排怪物table,后排怪物table))
+    识别怪物 = 返回值
+End Function
+
+
+Function 是否只有后排精英怪()
+    Dim 总像素数=0,i,返回值={"是否":False}
+    For i = 1 To 5
+        Dim 怪名字坐标 = 怪坐标[""&i]
+        Dim 颜色数量 = GetColorNum(怪名字坐标[1], 怪名字坐标[2], 怪名字坐标[3], 怪名字坐标[4], 绿色名字, 文字精确度)
+        返回值["" & i] = 颜色数量
+        总像素数 = 总像素数 + 颜色数量
+    Next
+    If 总像素数 < 150 Then 
+    	返回值["是否"] = True
+    End If
+    是否只有后排精英怪 = 返回值
+End Function
+
+Function 识别怪物前5(前排坐标)
+    Dim 怪名字坐标, 识别文字,识别文字长度,返回值() 
+    Dim i
+    Dim 从i号位开始,到i号位结束
+    Dim Json字符串 = Encode.TableToJson(前排坐标)
+	TracePrint Json字符串
+    For i = 1 To 5
+    	If not 从i号位开始 = null Then 
+    		If 前排坐标["" & i] > 150 Then 
+    			到i号位结束 = i
+    		End If
+    	Else 
+    		If 前排坐标["" & i] > 150 Then 
+    			从i号位开始 = i
+    		End If
+    	End If
+    Next
+    TracePrint "从i号位开始:"&从i号位开始&"|||到i号位结束:"&到i号位结束
+    KeepCapture
+    For i = 从i号位开始 To 到i号位结束
+        怪名字坐标 = 怪坐标["" & i]
+//        Dim 颜色数量 = GetColorNum(怪名字坐标[1], 怪名字坐标[2], 怪名字坐标[3], 怪名字坐标[4], 绿色名字, 文字精确度)
+//		TracePrint "前排绿色颜色数量:"&颜色数量
+        识别文字 = Ocr(怪名字坐标[1], 怪名字坐标[2], 怪名字坐标[3], 怪名字坐标[4], 绿色名字, 文字精确度)
+        返回值["" & i] = 识别文字
+    Next
+    ReleaseCapture
+    识别怪物前5 = 返回值
+End Function
+
+Function 识别怪物后5()
+    Dim 怪名字坐标, 识别文字,识别文字长度,返回值() 
+    Dim i
+    For i = 5 To 10
+        怪名字坐标 = 怪坐标[""&i]
+        识别文字 = Ocr(怪名字坐标[1], 怪名字坐标[2], 怪名字坐标[3], 怪名字坐标[4], 绿色名字, 文字精确度)
+        返回值[""&i] = 识别文字
+    Next 
+    识别怪物后5 = 返回值
+End Function
+
+Function 滑动识别后排怪物(只有后排精英怪)
+	Dim 返回值=array(),识别文字
+	Dim baseTouchId = ShanHai.RndEx(750,890)
+	Dim touchIds = {"6":baseTouchId,"7":baseTouchId+4,"8":baseTouchId+12,"9":baseTouchId+33,"10":baseTouchId+44}
+	For i = 6 To 10
+		Dim currentTouchId = touchIds[""&i]
+		Dim a1 = 打怪坐标[""&i],怪名字坐标 = 怪坐标[""&i]
+		Dim 怪物点击坐标x = a1[1],怪物点击坐标y = a1[2]
+		If i > 6 Then 
+			随机延迟(1,10)
+		End If
+		TouchDown 怪物点击坐标x, 怪物点击坐标y, currentTouchId
+		Delay 90
+		KeepCapture 
+		识别文字 = Ocr(怪名字坐标[1], 怪名字坐标[2], 怪名字坐标[3], 怪名字坐标[4], 红色名字, 文字精确度)
+		ReleaseCapture 
+
+//			点击区域 365, 1194, 396, 1217
+		Dim 人物x = ShanHai.RndEx(196,365)
+		Dim 人物y = ShanHai.RndEx(1194,1217)
+		Dim 人物touchId = ShanHai.RndEx(450,550)
+		TouchDown 人物x, 人物y, 人物touchId
+		Delay 20
+		TouchUp 人物touchId
+		Delay 5
+		TouchUp currentTouchId
+
+		返回值["" & i] = 识别文字
+//		If i = 10 Then 
+//			Dim 抬手坐标x = ShanHai.RndEx(781,868)
+//            Dim 抬手坐标y = ShanHai.RndEx(1324,1433)
+//            TouchMove 抬手坐标x, 抬手坐标y, currentTouchId, 100
+//            TouchUp currentTouchId
+//		End If
+	Next
+	滑动识别后排怪物 = 返回值
+End Function
+
+
+Sub 队长()
+	Dim 战斗次数 = 0
+    Do
+    	TracePrint "当前第"&战斗次数&"次"
+    	战斗次数 = 战斗次数+1
+        随机延迟(1000,2000)
+        随机地图移动直到遇怪()
+        Delay 200
+        If 是否正反脸() Then 
+            Call 等待正反脸通过()
+            TracePrint "主线程：正反脸通过了"
+        End If
+        Dim 怪物table = 识别怪物()
+        队长智能攻击(怪物table)
+        等待战斗结束() 
+        If 战斗次数 > 治宝宝战斗次数最大值 Then 
+        	打开背包()
+        	使用摄妖香() 
+        	关闭背包()
+        	Delay 1000
+        	找巫医治疗宝宝()
+        	Delay 1000
+        	打开背包()
+        	使用洞冥草() 
+        	关闭背包()
+        	战斗次数 = 1
+        End If
+    Loop
+	
+End Sub
+
+Sub 测试点击重置自动攻击()
+    点击区域(235,1342,276,1481)
+End Sub
+
+Sub 等待战斗结束()
+    Dim intX,intY
+    Do
+        FindPic 763,1728,847,1880, "Attachment:UI_打开任务按钮.png","000000", 0, 0.9, intX, intY
+        //如果没有找到，intX和intY的值都会被置为-1
+        If intX > -1 And intY > -1 Then 
+            TracePrint "战斗结束了"
+            Exit Do
+        Else 
+        End If
+        Delay 500
+    Loop
+    Dim 随机延迟 = ShanHai.RndEx(500, 1500)
+End Sub
+
+
+Sub 组员()
+	
+End Sub
+
+Function 等待正反脸通过()
+    PlaySound 临时文件目录&"bibi.mp3"
+    Vibrate 1000 
+    正反脸阻断线程共享变量 = False
+    Thread.SetShareVar("正反脸阻断线程共享变量", 正反脸阻断线程共享变量)
+    Dim 正反脸子线程id = Thread.Start(子线程_检测正反脸是否通过)
+    Do
+        Delay 800
+        正反脸阻断线程共享变量 = Thread.GetShareVar("正反脸阻断线程共享变量")
+        If 正反脸阻断线程共享变量 = True Then 
+            Exit Do
+        End If
+    Loop
+    StopPlay 
+    //	Thread.Stop(正反脸子线程id)
+End Function
+
+Function 子线程_检测正反脸是否通过()
+    Do
+        Dim 正反脸存在 = 是否正反脸()
+        If 正反脸存在 Then 
+            TracePrint "子线程:正反脸存在"
+        Else 
+            TracePrint "子线程:正反脸结束"
+            Thread.SetShareVar "正反脸阻断线程共享变量", True
+            Exit Do
+        End If
+        Delay 800
+    Loop
+End Function
+
+Function 是否正反脸()
+    Dim intX, intY,返回值 = False
+    KeepCapture 
+    FindPic 0,1773,126,1919, "Attachment:战斗_自动战斗按钮.png","000000", 0, 0.9, intX, intY
+    If intX <= -1 And intY <= -1 Then 
+//        FindPic 0,1773,126,1919, "Attachment:战斗_取消自动战斗按钮.png","000000", 0, 0.9, intX, intY
+//        If intX <= -1 And intY <= -1 Then 
+//			FindPic 12, 1062, 1074, 1913, "Attachment:UI_自动战斗暂离按钮.png", "000000", 0, 0.9, intX, intY
+//			If intX <= -1 And intY <= -1 Then 
+				返回值 = True
+//			End If
+//        End If
+    Else 
+    End If
+    ReleaseCapture 
+    是否正反脸 = 返回值
+End Function
+
+Dim 随机移动坐标索引 = 1
+
+Sub 随机地图移动直到遇怪()
+    Dim 场景地图世界按钮intX,场景地图世界按钮intY,移动点intX,移动点intY
+    Dim 第一次位置x, 第一次位置y, 第二次位置x, 第二次位置y
+    打开场景地图()
+    随机延迟(400,600)
+    随机地图移动 (False,随机移动坐标索引)
+    Dim 释放 = False
+    Do
+        KeepCapture 
+//        FindPic 584,478,676,668, "Attachment:场景地图_世界按钮.png", "000000", 0, 0.9, 场景地图世界按钮intX, 场景地图世界按钮intY
+		FindPic 893,856,1041,996, "Attachment:战斗_倒计时_2.png", "111111", 0, 0.8, 场景地图世界按钮intX, 场景地图世界按钮intY
+        If 场景地图世界按钮intX > -1 And 场景地图世界按钮intY > -1 Then 
+            // 进入战斗了，没有场景地图关闭按钮了
+            TracePrint "进入战斗了"
+            ReleaseCapture
+            Exit Do
+        Else 
+        	FindPic 222, 710, 777, 1450, "Attachment:场景地图_黄色移动点.png", "222222", 0, 0.8, 移动点intX, 移动点intY
+        	TracePrint "黄色点："&Cstr(移动点intX)&","&Cstr(移动点intY)
+			//如果没有找到，intX和intY的值都会被置为-1
+			If 移动点intX <= -1 And 移动点intY <= -1 Then 
+				随机延迟 400, 500
+				随机移动坐标索引 = 随机移动坐标索引 + 1
+				If 随机移动坐标索引 > 6 Then 
+					随机移动坐标索引 = 1
+				End If
+				Dim ranx = ShanHai.RndEx(270,665)
+				Dim rany = ShanHai.RndEx(825,1262)
+				RandomsTap(ranx,rany,5)
+//				随机地图移动(True, 随机移动坐标索引)
+				ReleaseCapture 
+			Else 
+				Delay 100
+				ReleaseCapture
+			End If
+        End If
+        
+//        FindPic 场景地图区域x1, 场景地图区域y1, 场景地图区域x2, 场景地图区域y2, "Attachment:场景地图_角色当前位置.png", "111111", 0, 0.85, 第一次位置x, 第一次位置y
+//        ReleaseCapture 
+//        Delay 1000
+//        KeepCapture
+//        FindPic 场景地图区域x1, 场景地图区域y1, 场景地图区域x2, 场景地图区域y2, "Attachment:场景地图_角色当前位置.png", "111111", 0, 0.85, 第二次位置x, 第二次位置y
+//        TracePrint "位置移动：1="&第一次位置x&","&第一次位置y&"  |  "&"2="&第二次位置x&","&第二次位置y
+//        If 第一次位置x>-1 And 第一次位置y>-1 And 第二次位置x>-1 And 第二次位置y>-1 And Abs(第一次位置x - 第二次位置x) < 3 And Abs(第一次位置y - 第二次位置y) < 3 Then 
+//            随机地图移动(True)
+//        End If
+    Loop
+    ReleaseCapture
+End Sub
+
+Sub 通过场景地图等待停止移动()
+    Dim 第一次位置x, 第一次位置y, 第二次位置x, 第二次位置y
+    Do
+        KeepCapture 
+        FindPic 0, 0, 0, 0, "Attachment:场景地图_角色当前位置.png","000000", 0, 0.9, 第一次位置x, 第一次位置y
+        ReleaseCapture 
+        Delay 1000
+        KeepCapture 
+        FindPic 0, 0, 0, 0, "Attachment:场景地图_角色当前位置.png","000000", 0, 0.9, 第二次位置x, 第二次位置y
+        ReleaseCapture 
+        If 第一次位置x>-1 And 第一次位置y>-1 And 第二次位置x>-1 And 第二次位置y>-1 And Abs(第一次位置x - 第二次位置x) < 3 And Abs(第一次位置y - 第二次位置y) < 3 Then 
+            TracePrint "停止移动"
+            Exit Do
+        End If
+    Loop
+End Sub
+
+Sub 随机地图移动(场景地图已打开, 随机地图移动索引)
+	Dim 移动点坐标对象 = 随机地图移动坐标[""&随机地图移动索引]
+	Dim 确认随机移动 = False
+	If 随机地图移动索引 = Null Then 
+		确认随机移动 = True
+	End If
+    If 场景地图已打开 Then 
+        TracePrint "场景地图已打开,直接点击移动坐标"
+    Else 
+        打开场景地图()
+        等待地图打开成功()
+    End If
+//    点击区域(场景地图区域x1,场景地图区域y1,场景地图区域x2,场景地图区域y2)
+	If 确认随机移动 Then 
+		点击区域(场景地图区域x1, 场景地图区域y1, 场景地图区域x2, 场景地图区域y2)
+	Else 
+		点击区域(移动点坐标对象[1]-10, 移动点坐标对象[2]-10, 移动点坐标对象[1]+10, 移动点坐标对象[2]+10)
+	End If
+	
+End Sub
+
+Sub 打开场景地图()
+	Delay 400
+    点击区域(965,30,1036,91)
+End Sub
+
+Sub 关闭场景地图()
+    点击区域(861,1450,907,1495)
+End Sub
+
+
+Sub 等待地图打开成功()
+    Dim 随机延迟 = ShanHai.RndEx(1000,1500)
+    Delay 随机延迟
+End Sub
+
+Function 点击区域(x1,y1,x2,y2)
+    Dim 点击x = ShanHai.RndEx(x1, x2)
+    Dim 点击y = ShanHai.RndEx(y1, y2)
+    Dim 延迟毫秒 = ShanHai.RndEx(40,80)
+    RandomsTap 点击x,点击y, 3
+    Delay 延迟毫秒
+End Function
+
+
+Function 使用摄妖香()
+    Dim intX,intY
+    KeepCapture 
+    FindPic 264,881,825,1584, "Attachment:UI_摄妖香.png","000000", 0, 0.9, intX, intY
+    If intX > -1 And intY > -1 Then 
+        点击区域 intX - 5, intY - 5, intX + 20, intY + 20
+        随机延迟 800, 1000
+        点击区域 439, 575, 496, 754
+    Else 
+    	// todo 购买摄妖香
+    End If
+    ReleaseCapture 
+    随机延迟 3000, 4000
+End Function
+
+Function 使用洞冥草()
+    Dim intX,intY
+    KeepCapture 
+    FindPic 264,881,825,1584, "Attachment:UI_洞冥草.png","000000", 0, 0.9, intX, intY
+    If intX > -1 And intY > -1 Then 
+        点击区域 intX - 5, intY - 5, intX + 5, intY + 5
+        随机延迟 800, 1000
+        点击区域 311,574,366,735
+    Else 
+    	// todo 购买洞冥草
+    End If
+    ReleaseCapture 
+    随机延迟 3000, 4000
+End Function
+
+
+Function 找巫医治疗宝宝()
+	打开场景地图() 
+	等待地图打开成功() 
+	// 点击搜索npc按钮
+	点击区域 857,419,907,475
+	随机延迟 800, 1000
+	// 点击搜索出来的超级巫医
+	点击区域 634,168,720,389
+	随机延迟 800, 1000
+	// 点击寻路按钮
+	点击区域 97,195,156,359
+	随机延迟 800, 1000
+	// todo 等待到达位置
+	通过场景地图等待停止移动()
+	随机延迟 2000, 3000
+	关闭场景地图()
+	随机延迟 800, 1500
+	// 隐藏界面
+	点击区域 684,43,717,80
+	随机延迟 800, 1000
+	// 点击巫医
+	点击区域 552,951,564,979
+	随机延迟 800, 1000
+	等待超级巫医对话打开()
+	
+	// 点击治疗按钮
+	点击区域 521,1428,592,1784
+	随机延迟 800, 1000
+	等待超级巫医治疗结束() 
+	// 点击屏幕关闭巫医对话框
+	点击区域 570,887,658,1003
+	随机延迟 800, 1000
+	
+End Function
+
+Function 等待超级巫医对话打开()
+	Dim intX,intY
+	Do
+		KeepCapture 
+		FindPic 477,1378,631,1878, "Attachment:UI_巫医治宝宝按钮.png","000000", 0, 0.9, intX, intY
+		If intX > -1 And intY > -1 Then 
+			Exit Do
+		End If
+		ReleaseCapture 
+		Delay 400
+	Loop
+End Function
+
+Function 等待超级巫医治疗结束()
+	随机延迟(2000,4000)
+End Function
